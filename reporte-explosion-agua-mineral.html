@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de explosiones — Agua Mineral Best Choice 2 Lt</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --navy:#0B3350;
+    --navy-deep:#082439;
+    --accent:#C2412D;
+    --accent-soft:#F2B8AC;
+    --green:#2E7D52;
+    --green-soft:#DCEFE3;
+    --red:#B23A32;
+    --bg:#F3F2EE;
+    --surface:#FFFFFF;
+    --line:#E3E0D8;
+    --text:#1D2226;
+    --text-mut:#5B6570;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --cond: 'Barlow Semi Condensed', var(--sans);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{ background:var(--bg); color:var(--text); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+  ::selection{ background:var(--accent-soft); }
+
+  .topbar{
+    position:sticky; top:0; z-index:30;
+    background:linear-gradient(180deg,var(--navy) 0%, var(--navy-deep) 100%);
+    color:#fff; padding:18px 20px 16px; box-shadow:0 4px 14px rgba(8,36,57,.25);
+  }
+  .topbar-inner{ max-width:960px; margin:0 auto; }
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent-soft); display:flex; align-items:center; gap:8px; margin-bottom:6px;
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent); box-shadow:0 0 0 3px rgba(194,65,45,.3);}
+  h1{ font-family:var(--cond); font-weight:600; font-size:24px; line-height:1.15; margin:0 0 2px; }
+  .article-name{ font-size:13.5px; color:#C9D6DD; margin:0 0 14px; }
+  .article-name b{ color:#fff; font-weight:600; }
+
+  .stats{ display:flex; gap:10px; flex-wrap:wrap; }
+  .stat{
+    flex:1 1 90px; background:rgba(255,255,255,.08); border-radius:9px; padding:8px 12px;
+  }
+  .stat b{ display:block; font-family:var(--mono); font-size:20px; font-weight:600; color:#fff; }
+  .stat span{ font-size:11.5px; color:#C9D6DD; }
+  .stat.hot b{ color:#FFB4A6; }
+
+  .controls{
+    position:sticky; top:132px; z-index:25; background:var(--bg);
+    border-bottom:1px solid var(--line); padding:12px 20px;
+  }
+  .controls-inner{ max-width:960px; margin:0 auto; display:flex; flex-wrap:wrap; gap:8px; }
+  input[type=search], select{
+    font-family:var(--sans); font-size:13.5px; border:1px solid var(--line); background:var(--surface);
+    border-radius:8px; padding:9px 11px; color:var(--text);
+  }
+  input[type=search]{ flex:1 1 220px; min-width:160px; }
+  input[type=search]:focus, select:focus{ outline:2px solid var(--navy); outline-offset:1px; }
+  select{ flex:0 0 auto; cursor:pointer; }
+  .btn-export{
+    flex:0 0 auto; font-family:var(--sans); font-weight:600; font-size:12.5px;
+    padding:9px 14px; border-radius:8px; border:1px solid var(--navy);
+    background:var(--navy); color:#fff; cursor:pointer; white-space:nowrap;
+  }
+  .btn-export:hover{ filter:brightness(1.12); }
+  .btn-export:disabled{ opacity:.6; cursor:wait; }
+
+  main{ max-width:960px; margin:0 auto; padding:18px 20px 60px; }
+  .region-group{ margin-bottom:22px; }
+  .region-head{ display:flex; align-items:center; justify-content:space-between; padding:10px 4px; cursor:pointer; user-select:none; }
+  .region-title{ font-family:var(--cond); font-weight:600; font-size:16px; display:flex; align-items:center; gap:8px; }
+  .region-title .caret{ transition:transform .18s ease; color:var(--text-mut); font-size:12px; }
+  .region-group.collapsed .caret{ transform:rotate(-90deg); }
+  .region-count{
+    font-family:var(--mono); font-size:12px; color:var(--text-mut);
+    background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:3px 8px;
+  }
+  .region-count b{ color:var(--accent); }
+  .region-list{ display:flex; flex-direction:column; gap:8px; }
+  .region-group.collapsed .region-list{ display:none; }
+
+  .store-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; display:flex; align-items:center; gap:12px;
+  }
+  .store-card.reported{ border-color:#E8B9B0; background:#FBEBE8; }
+  .status-dot{ flex:0 0 auto; width:11px; height:11px; border-radius:50%; background:#B9C2C9; box-shadow:0 0 0 3px rgba(185,194,201,.3); }
+  .store-card.reported .status-dot{ background:var(--accent); box-shadow:0 0 0 3px rgba(194,65,45,.18); }
+  .store-info{ flex:1; min-width:0; }
+  .store-name{ font-weight:600; font-size:14.5px; line-height:1.25; }
+  .store-meta{ font-family:var(--mono); font-size:11.5px; color:var(--text-mut); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap; }
+  .store-meta span b{ color:var(--text); font-weight:600; }
+  .store-meta .zona-tag{ color:var(--navy); }
+
+  .exist-badge{ flex:0 0 auto; text-align:right; font-family:var(--mono); font-size:11px; color:var(--text-mut); line-height:1.5; min-width:70px; }
+  .exist-badge b{ display:block; font-size:15px; color:var(--text); font-weight:600; }
+  .exist-badge.affected b{ color:var(--accent); }
+
+  .btn{
+    flex:0 0 auto; font-family:var(--sans); font-weight:600; font-size:12.5px;
+    padding:8px 14px; border-radius:8px; border:1px solid transparent; cursor:pointer;
+  }
+  .btn:active{ transform:scale(.97); }
+  .btn-report{ background:var(--navy); color:#fff; }
+  .btn-report:hover{ filter:brightness(1.12); }
+  .btn-view{ background:transparent; color:var(--accent); border-color:#E8B9B0; }
+  .btn-view:hover{ background:#fff; }
+
+  .empty-state{ text-align:center; padding:60px 20px; color:var(--text-mut); }
+  .empty-state .big{ font-family:var(--cond); font-size:19px; color:var(--text); margin-bottom:4px; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(8,20,30,.55);
+    display:none; align-items:flex-end; justify-content:center; z-index:100; backdrop-filter: blur(2px);
+  }
+  .overlay.open{ display:flex; }
+  @media(min-width:600px){ .overlay{ align-items:center; } }
+  .modal{
+    background:var(--surface); width:100%; max-width:500px;
+    border-radius:16px 16px 0 0; max-height:92vh; overflow-y:auto; position:relative;
+  }
+  @media(min-width:600px){ .modal{ border-radius:16px; } }
+  .modal-head{ padding:18px 20px 12px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--surface); z-index:2; }
+  .modal-close{
+    position:absolute; top:14px; right:14px; width:30px; height:30px; border-radius:50%;
+    background:var(--bg); border:none; cursor:pointer; font-size:16px; color:var(--text-mut);
+  }
+  .modal-region{ font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--navy); }
+  .modal-title{ font-family:var(--cond); font-weight:600; font-size:20px; margin:2px 0 0; }
+  .modal-sub{ font-size:12.5px; color:var(--text-mut); margin-top:4px; font-family:var(--mono); }
+  .modal-body{ padding:16px 20px 22px; }
+
+  .section-title{ font-family:var(--cond); font-weight:600; font-size:15px; margin:0 0 8px; }
+  .report-item{ border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px; background:var(--bg); }
+  .report-top{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .report-qty{ font-family:var(--mono); font-weight:700; font-size:16px; color:var(--accent); }
+  .report-date{ font-family:var(--mono); font-size:11.5px; color:var(--text-mut); }
+  .report-meta{ font-size:12.5px; color:var(--text); margin-top:4px; line-height:1.5; }
+  .report-meta .k{ color:var(--text-mut); }
+  .report-actions{ display:flex; gap:8px; margin-top:8px; }
+  .link-btn{ background:none; border:none; padding:0; font-family:var(--sans); font-size:12px; font-weight:600; color:var(--navy); cursor:pointer; text-decoration:underline; }
+  .link-btn.danger{ color:var(--red); }
+  .report-photo img{ width:100%; border-radius:8px; margin-top:8px; display:block; max-height:260px; object-fit:cover; }
+  .divider{ height:1px; background:var(--line); margin:16px 0; }
+
+  .field-label{ font-size:12.5px; font-weight:600; margin:14px 0 6px; color:var(--text); }
+  .field-label .opt{ font-weight:400; color:var(--text-mut); }
+  .row2{ display:flex; gap:10px; }
+  .row2 > div{ flex:1; }
+  .text-input, textarea{
+    width:100%; font-family:var(--sans); font-size:13.5px; border:1px solid var(--line);
+    border-radius:9px; padding:10px 12px; background:var(--bg); color:var(--text);
+  }
+  textarea{ min-height:64px; resize:vertical; }
+  .text-input:focus, textarea:focus{ outline:2px solid var(--navy); outline-offset:1px; background:#fff; }
+  .qty-input{ font-family:var(--mono); font-weight:600; }
+  .err{ border-color:var(--red) !important; }
+
+  .photo-drop{
+    border:1.5px dashed var(--line); border-radius:12px; padding:18px;
+    text-align:center; cursor:pointer; background:var(--bg); position:relative; overflow:hidden;
+  }
+  .photo-drop.has-photo{ padding:0; border-style:solid; border-color:#B9DCC5; }
+  .photo-drop.err{ border-color:var(--red); }
+  .photo-drop img{ width:100%; display:block; max-height:260px; object-fit:cover; }
+  .photo-drop .hint{ font-size:12.5px; color:var(--text-mut); }
+  .photo-drop .hint b{ color:var(--navy); }
+  .photo-drop .icon{ font-size:26px; margin-bottom:6px; display:block; }
+  .photo-actions{ position:absolute; bottom:8px; right:8px; }
+  .photo-actions button{
+    font-family:var(--sans); font-size:11.5px; font-weight:600; padding:6px 10px;
+    border-radius:7px; border:none; background:rgba(8,20,30,.72); color:#fff; cursor:pointer;
+  }
+
+  .btn-big{ width:100%; margin-top:20px; padding:13px; border-radius:10px; font-weight:700; font-size:14px; border:none; cursor:pointer; font-family:var(--sans); background:var(--navy); color:#fff; }
+  .btn-big:disabled{ background:#B9C2C9; cursor:not-allowed; }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--navy-deep); color:#fff; padding:11px 18px; border-radius:9px;
+    font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:all .25s ease; z-index:200;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .shared-note{ max-width:960px; margin:0 auto; padding:10px 20px 0; font-size:11.5px; color:var(--text-mut); font-family:var(--mono); }
+  .shared-note.warn{ color:var(--red); }
+  .loading-line{ text-align:center; padding:40px; color:var(--text-mut); font-family:var(--mono); font-size:13px; }
+  @media(prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="eyebrow"><span class="dot"></span>Reporte de producto con explosión</div>
+    <h1>Piezas afectadas por tienda</h1>
+    <p class="article-name"><b>Agua Mineral Best Choice 2 Lt</b></p>
+    <div class="stats">
+      <div class="stat hot"><b id="statPiezas">0</b><span>piezas afectadas</span></div>
+      <div class="stat"><b id="statTiendas">0</b><span>tiendas con reporte</span></div>
+      <div class="stat"><b id="statReportes">0</b><span>reportes</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="controls-inner">
+    <input type="search" id="searchInput" placeholder="Buscar tienda o zona…">
+    <select id="regionFilter"><option value="">Todas las regiones</option></select>
+    <select id="statusFilter">
+      <option value="">Todas las tiendas</option>
+      <option value="reported">Con reporte</option>
+      <option value="none">Sin reporte</option>
+    </select>
+    <button class="btn-export" id="exportBtn">⬇ Exportar a Excel</button>
+  </div>
+</div>
+<p class="shared-note" id="sharedNote"></p>
+
+<main id="mainContent"><div class="loading-line">Cargando tiendas…</div></main>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <button class="modal-close" id="modalClose" aria-label="Cerrar">✕</button>
+      <div class="modal-region" id="modalRegion"></div>
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-sub" id="modalSub"></div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ CONFIGURACIÓN ============ */
+// Tiendas (desde agua_mineral.xlsx): 79 tiendas
+const STORES = [{"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "actopan-san-francisco", "tienda": "ACTOPAN SAN FRANCISCO", "idArticulo": "6070006330", "existPiezas": 78, "existCajas": 13}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "alto-lucero", "tienda": "ALTO LUCERO", "idArticulo": "6070006330", "existPiezas": 121, "existCajas": 20}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "altotonga", "tienda": "ALTOTONGA", "idArticulo": "6070006330", "existPiezas": 54, "existCajas": 9}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "altotonga-hidalgo", "tienda": "ALTOTONGA HIDALGO", "idArticulo": "6070006330", "existPiezas": 37, "existCajas": 6}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "amapolas-puerto", "tienda": "AMAPOLAS PUERTO", "idArticulo": "6070006330", "existPiezas": 81, "existCajas": 14}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "arista-y-gladiolas", "tienda": "ARISTA Y GLADIOLAS", "idArticulo": "6070006330", "existPiezas": 84, "existCajas": 14}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "atenas-veracruzana", "tienda": "ATENAS VERACRUZANA", "idArticulo": "6070006330", "existPiezas": 119, "existCajas": 20}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "av-quevedo", "tienda": "AV QUEVEDO", "idArticulo": "6070006330", "existPiezas": 100, "existCajas": 17}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "boca-del-rio-centro", "tienda": "BOCA DEL RIO CENTRO", "idArticulo": "6070006330", "existPiezas": 174, "existCajas": 29}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "boca-negra-abasto", "tienda": "BOCA NEGRA ABASTO", "idArticulo": "6070006330", "existPiezas": 40, "existCajas": 7}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "calle-8-col-carranza", "tienda": "CALLE 8 COL CARRANZA", "idArticulo": "6070006330", "existPiezas": 43, "existCajas": 7}, {"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "cardel-revolucion", "tienda": "CARDEL REVOLUCION", "idArticulo": "6070006330", "existPiezas": 74, "existCajas": 12}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "carranza-5-de-mayo", "tienda": "CARRANZA 5 DE MAYO", "idArticulo": "6070006330", "existPiezas": 66, "existCajas": 11}, {"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "carrizal-zapata", "tienda": "CARRIZAL ZAPATA", "idArticulo": "6070006330", "existPiezas": 77, "existCajas": 13}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "casitas-veracruz", "tienda": "CASITAS VERACRUZ", "idArticulo": "6070006330", "existPiezas": 29, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "castillo-jalapa", "tienda": "CASTILLO JALAPA", "idArticulo": "6070006330", "existPiezas": 53, "existCajas": 9}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "central-caram", "tienda": "CENTRAL CARAM", "idArticulo": "6070006330", "existPiezas": 69, "existCajas": 12}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "chignautla", "tienda": "CHIGNAUTLA", "idArticulo": "6070006330", "existPiezas": 49, "existCajas": 8}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "coacoatzintla-ver", "tienda": "COACOATZINTLA VER", "idArticulo": "6070006330", "existPiezas": 28, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "coatepec-centro", "tienda": "COATEPEC CENTRO", "idArticulo": "6070006330", "existPiezas": 57, "existCajas": 10}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "coatepec-mercado", "tienda": "COATEPEC MERCADO", "idArticulo": "6070006330", "existPiezas": 29, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "cosautlan-veracruz", "tienda": "COSAUTLAN VERACRUZ", "idArticulo": "6070006330", "existPiezas": 25, "existCajas": 4}, {"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "cempoala", "tienda": "Cempoala", "idArticulo": "6070006330", "existPiezas": 76, "existCajas": 13}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "diaz-miron", "tienda": "DIAZ MIRON", "idArticulo": "6070006330", "existPiezas": 61, "existCajas": 10}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "dos-lomas", "tienda": "DOS LOMAS", "idArticulo": "6070006330", "existPiezas": 52, "existCajas": 9}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "ebano", "tienda": "EBANO", "idArticulo": "6070006330", "existPiezas": 70, "existCajas": 12}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "el-morro-veracruz", "tienda": "EL MORRO VERACRUZ", "idArticulo": "6070006330", "existPiezas": 149, "existCajas": 25}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "galvan", "tienda": "GALVAN", "idArticulo": "6070006330", "existPiezas": 35, "existCajas": 6}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "hueytamalco", "tienda": "HUEYTAMALCO", "idArticulo": "6070006330", "existPiezas": 26, "existCajas": 4}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "independencia-martinez", "tienda": "INDEPENDENCIA MARTINEZ", "idArticulo": "6070006330", "existPiezas": 73, "existCajas": 12}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "intercolonia", "tienda": "INTERCOLONIA", "idArticulo": "6070006330", "existPiezas": 135, "existCajas": 23}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "j-b-lobos", "tienda": "J B LOBOS", "idArticulo": "6070006330", "existPiezas": 79, "existCajas": 13}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "jalacingo", "tienda": "JALACINGO", "idArticulo": "6070006330", "existPiezas": 56, "existCajas": 9}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "jilotepec", "tienda": "JILOTEPEC", "idArticulo": "6070006330", "existPiezas": 54, "existCajas": 9}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "juan-soto", "tienda": "JUAN SOTO", "idArticulo": "6070006330", "existPiezas": 82, "existCajas": 14}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "juchique", "tienda": "JUCHIQUE", "idArticulo": "6070006330", "existPiezas": 27, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "la-rotonda", "tienda": "LA ROTONDA", "idArticulo": "6070006330", "existPiezas": 224, "existCajas": 37}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "lagos", "tienda": "LAGOS", "idArticulo": "6070006330", "existPiezas": 1444, "existCajas": 241}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "las-trancas", "tienda": "LAS TRANCAS", "idArticulo": "6070006330", "existPiezas": 63, "existCajas": 11}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "las-vigas-ver", "tienda": "LAS VIGAS VER", "idArticulo": "6070006330", "existPiezas": 46, "existCajas": 8}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "lazaro-cardenas", "tienda": "LAZARO CARDENAS", "idArticulo": "6070006330", "existPiezas": 1, "existCajas": 0}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "manlio-benito-juarez", "tienda": "MANLIO BENITO JUAREZ", "idArticulo": "6070006330", "existPiezas": 65, "existCajas": 11}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "maria-de-la-torre", "tienda": "MARIA DE LA TORRE", "idArticulo": "6070006330", "existPiezas": 37, "existCajas": 6}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "mariano-abasolo", "tienda": "MARIANO ABASOLO", "idArticulo": "6070006330", "existPiezas": 52, "existCajas": 9}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "martinez-de-la-torre", "tienda": "MARTINEZ DE LA TORRE", "idArticulo": "6070006330", "existPiezas": 42, "existCajas": 7}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "martires-del-28", "tienda": "MARTIRES DEL 28", "idArticulo": "6070006330", "existPiezas": 51, "existCajas": 9}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "matamoros-pinos", "tienda": "MATAMOROS PINOS", "idArticulo": "6070006330", "existPiezas": 142, "existCajas": 24}, {"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "mercadito-cardel", "tienda": "MERCADITO CARDEL", "idArticulo": "6070006330", "existPiezas": 65, "existCajas": 11}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "misantla", "tienda": "MISANTLA", "idArticulo": "6070006330", "existPiezas": 72, "existCajas": 12}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "misantla-e-alatriste", "tienda": "MISANTLA E ALATRISTE", "idArticulo": "6070006330", "existPiezas": 31, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "naolinco", "tienda": "NAOLINCO", "idArticulo": "6070006330", "existPiezas": 88, "existCajas": 15}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "nautla-maracaibo", "tienda": "NAUTLA MARACAIBO", "idArticulo": "6070006330", "existPiezas": 86, "existCajas": 14}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "oasis-sonora", "tienda": "OASIS SONORA", "idArticulo": "6070006330", "existPiezas": 106, "existCajas": 18}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "pages", "tienda": "PAGES", "idArticulo": "6070006330", "existPiezas": 87, "existCajas": 15}, {"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "palma-sola-veracruz", "tienda": "PALMA SOLA VERACRUZ", "idArticulo": "6070006330", "existPiezas": 45, "existCajas": 8}, {"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "paso-de-ovejas-insurgentes-1", "tienda": "PASO DE OVEJAS INSURGENTES 1", "idArticulo": "6070006330", "existPiezas": 60, "existCajas": 10}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "perote-aldama", "tienda": "PEROTE ALDAMA", "idArticulo": "6070006330", "existPiezas": 45, "existCajas": 8}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "playa-linda", "tienda": "PLAYA LINDA", "idArticulo": "6070006330", "existPiezas": 161, "existCajas": 27}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "reserva-ii", "tienda": "RESERVA II", "idArticulo": "6070006330", "existPiezas": 169, "existCajas": 28}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "revolucion-san-rafael", "tienda": "REVOLUCION SAN RAFAEL", "idArticulo": "6070006330", "existPiezas": 61, "existCajas": 10}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "rio-medio-4", "tienda": "RIO MEDIO 4", "idArticulo": "6070006330", "existPiezas": 77, "existCajas": 13}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "rio-san-isidro", "tienda": "RIO SAN ISIDRO", "idArticulo": "6070006330", "existPiezas": 65, "existCajas": 11}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "soledad-de-doblado", "tienda": "SOLEDAD DE DOBLADO", "idArticulo": "6070006330", "existPiezas": 8, "existCajas": 1}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "soledad-de-doblado-5-de-mayo", "tienda": "SOLEDAD DE DOBLADO 5 DE MAYO", "idArticulo": "6070006330", "existPiezas": 63, "existCajas": 11}, {"region": "VERACRUZ CENTRO", "zona": "HEROICA", "idTienda": "tejeria", "tienda": "TEJERIA", "idArticulo": "6070006330", "existPiezas": 95, "existCajas": 16}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "teocelo-5-de-mayo", "tienda": "TEOCELO 5 DE MAYO", "idArticulo": "6070006330", "existPiezas": 45, "existCajas": 8}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "teziutlan", "tienda": "TEZIUTLAN", "idArticulo": "6070006330", "existPiezas": 27, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "teziutlan-16-de-septiembre", "tienda": "TEZIUTLAN 16 DE SEPTIEMBRE", "idArticulo": "6070006330", "existPiezas": 89, "existCajas": 15}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "teziutlan-hidalgo", "tienda": "TEZIUTLAN HIDALGO", "idArticulo": "6070006330", "existPiezas": 31, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "teziutlan-lerdo", "tienda": "TEZIUTLAN LERDO", "idArticulo": "6070006330", "existPiezas": 40, "existCajas": 7}, {"region": "VERACRUZ CENTRO", "zona": "CARDEL", "idTienda": "tierra-colorada-ver", "tienda": "TIERRA COLORADA VER", "idArticulo": "6070006330", "existPiezas": 28, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "tlalnehuayocan", "tienda": "TLALNEHUAYOCAN", "idArticulo": "6070006330", "existPiezas": 32, "existCajas": 5}, {"region": "VERACRUZ CENTRO", "zona": "COATEPEC", "idTienda": "tlaltetela", "tienda": "TLALTETELA", "idArticulo": "6070006330", "existPiezas": 38, "existCajas": 6}, {"region": "VERACRUZ CENTRO", "zona": "TEZIUTLAN", "idTienda": "tlapacoyan", "tienda": "TLAPACOYAN", "idArticulo": "6070006330", "existPiezas": 34, "existCajas": 6}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "valle-gaviota", "tienda": "VALLE GAVIOTA", "idArticulo": "6070006330", "existPiezas": 108, "existCajas": 18}, {"region": "VERACRUZ CENTRO", "zona": "COSTA ESMERALDA", "idTienda": "vega-de-alatorre", "tienda": "VEGA DE ALATORRE", "idArticulo": "6070006330", "existPiezas": 70, "existCajas": 12}, {"region": "VERACRUZ CENTRO", "zona": "BOCA DEL RIO", "idTienda": "vistamar", "tienda": "VISTAMAR", "idArticulo": "6070006330", "existPiezas": 101, "existCajas": 17}, {"region": "VERACRUZ CENTRO", "zona": "XALAPA", "idTienda": "xalapa", "tienda": "XALAPA", "idArticulo": "6070006330", "existPiezas": 71, "existCajas": 12}, {"region": "VERACRUZ CENTRO", "zona": "PORTUARIA", "idTienda": "xana", "tienda": "XANA", "idArticulo": "6070006330", "existPiezas": 107, "existCajas": 18}];
+
+const ARTICULO = "Agua Mineral Best Choice 2 Lt";
+
+// 2) Firebase: pega aquí TU firebaseConfig (Configuración del proyecto > Tus apps > Web)
+const firebaseConfig = {
+  apiKey: "AIzaSyCsuFxHCqKtRDucNtuNeRSnNwb-rSFrfZY",
+  authDomain: "reporte-explosiones.firebaseapp.com",
+  projectId: "reporte-explosiones",
+  storageBucket: "reporte-explosiones.firebasestorage.app",
+  messagingSenderId: "349710660763",
+  appId: "1:349710660763:web:b1301019560408a9e9023e"
+};
+
+/* ============ ESTADO ============ */
+let reports = [];            // [{id, idTienda, piezas, lote, caducidad, reportadoPor, notas, hasPhoto, createdAt}]
+let collapsedRegions = new Set();
+let currentStore = null;
+let pendingPhoto = null;
+
+let firebaseReady = false, db = null, reportsCol = null, photosCol = null;
+try{
+  if(typeof firebase === 'undefined') throw new Error('SDK de Firebase no disponible');
+  if(firebaseConfig.apiKey === 'PEGA_AQUI') throw new Error('Falta pegar el firebaseConfig');
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  reportsCol = db.collection('reportes_explosion');
+  photosCol = db.collection('fotos_explosion');
+  firebaseReady = true;
+}catch(e){ console.warn('Firebase no inicializado:', e.message); }
+
+const el = id => document.getElementById(id);
+const titleCase = s => String(s||'').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ============ INIT ============ */
+function init(){
+  bindControls();
+  if(!firebaseReady){
+    el('sharedNote').classList.add('warn');
+    el('sharedNote').textContent = '⚠ Firebase no está configurado: los reportes NO se guardan en la nube (solo en esta sesión). Pega tu firebaseConfig.';
+  }else{
+    el('sharedNote').textContent = '● Los reportes se sincronizan en vivo para todos los que abran este enlace.';
+  }
+  populateRegionFilter();
+  render();
+  if(firebaseReady){
+    reportsCol.orderBy('createdAt','desc').onSnapshot(snap=>{
+      reports = snap.docs.map(d => ({id:d.id, ...d.data()}));
+      render();
+      if(currentStore) renderReportList();
+    }, err => { console.error(err); showToast('Error de sincronización con Firebase'); });
+  }
+}
+
+function populateRegionFilter(){
+  const regions = [...new Set(STORES.map(s=>s.region))].sort();
+  const sel = el('regionFilter');
+  regions.forEach(r=>{ const o = document.createElement('option'); o.value = r; o.textContent = titleCase(r); sel.appendChild(o); });
+}
+
+/* ============ DATOS DERIVADOS ============ */
+const reportsOf = id => reports.filter(r => String(r.idTienda) === String(id));
+const piezasOf = id => reportsOf(id).reduce((s,r)=> s + (r.piezas||0), 0);
+
+function updateStats(){
+  const storesWith = new Set(reports.map(r => String(r.idTienda)));
+  el('statPiezas').textContent = reports.reduce((s,r)=> s + (r.piezas||0), 0);
+  el('statTiendas').textContent = storesWith.size;
+  el('statReportes').textContent = reports.length;
+}
+
+/* ============ RENDER ============ */
+function getFiltered(){
+  const q = el('searchInput').value.trim().toLowerCase();
+  const region = el('regionFilter').value;
+  const status = el('statusFilter').value;
+  return STORES.filter(s=>{
+    if(region && s.region !== region) return false;
+    const has = reportsOf(s.idTienda).length > 0;
+    if(status === 'reported' && !has) return false;
+    if(status === 'none' && has) return false;
+    if(q && !(s.tienda + ' ' + s.zona).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function render(){
+  updateStats();
+  const filtered = getFiltered();
+  const main = el('mainContent');
+  if(!filtered.length){
+    main.innerHTML = `<div class="empty-state"><div class="big">Sin resultados</div>Ajusta la búsqueda o los filtros.</div>`;
+    return;
+  }
+  const byRegion = {};
+  filtered.forEach(s => (byRegion[s.region] = byRegion[s.region] || []).push(s));
+  main.innerHTML = Object.keys(byRegion).sort().map(region=>{
+    const stores = byRegion[region].sort((a,b)=> a.tienda.localeCompare(b.tienda));
+    const withReport = stores.filter(s => reportsOf(s.idTienda).length).length;
+    return `
+    <div class="region-group ${collapsedRegions.has(region)?'collapsed':''}">
+      <div class="region-head" data-toggle-region="${escHtml(region)}">
+        <div class="region-title"><span class="caret">▾</span>${escHtml(titleCase(region))}</div>
+        <div class="region-count"><b>${withReport}</b>/${stores.length} con reporte</div>
+      </div>
+      <div class="region-list">${stores.map(storeCardHtml).join('')}</div>
+    </div>`;
+  }).join('');
+
+  main.querySelectorAll('[data-toggle-region]').forEach(n=> n.addEventListener('click', ()=>{
+    const r = n.getAttribute('data-toggle-region');
+    collapsedRegions.has(r) ? collapsedRegions.delete(r) : collapsedRegions.add(r);
+    render();
+  }));
+  main.querySelectorAll('[data-open-id]').forEach(n=> n.addEventListener('click', e=>{
+    e.stopPropagation(); openModal(n.getAttribute('data-open-id'));
+  }));
+}
+
+function storeCardHtml(s){
+  const n = reportsOf(s.idTienda).length;
+  const pz = piezasOf(s.idTienda);
+  return `
+  <div class="store-card ${n?'reported':''}">
+    <div class="status-dot"></div>
+    <div class="store-info">
+      <div class="store-name">${escHtml(titleCase(s.tienda))}</div>
+      <div class="store-meta">
+        ${s.zona ? `<span class="zona-tag">${escHtml(titleCase(s.zona))}</span>` : ''}
+      </div>
+    </div>
+    <div class="exist-badge ${n?'affected':''}">
+      ${n ? `<b>${pz}</b>pz afectadas` : `<b>${s.existPiezas}</b>pz · ${s.existCajas}cj`}
+    </div>
+    <button class="btn ${n?'btn-view':'btn-report'}" data-open-id="${escHtml(s.idTienda)}">${n ? 'Ver / Agregar' : 'Reportar'}</button>
+  </div>`;
+}
+
+/* ============ MODAL ============ */
+function openModal(idTienda){
+  const store = STORES.find(s => String(s.idTienda) === String(idTienda));
+  if(!store) return;
+  currentStore = store;
+  pendingPhoto = null;
+  el('modalRegion').textContent = titleCase(store.region) + (store.zona ? ' · ' + titleCase(store.zona) : '');
+  el('modalTitle').textContent = titleCase(store.tienda);
+  el('modalSub').textContent = `Existencia: ${store.existPiezas} pz / ${store.existCajas} cj`;
+
+  el('modalBody').innerHTML = `
+    <div id="reportList"></div>
+    <div class="section-title">Nuevo reporte</div>
+
+    <div class="row2">
+      <div>
+        <div class="field-label" style="margin-top:0">Piezas afectadas</div>
+        <input class="text-input qty-input" type="number" min="1" step="1" id="piezas" placeholder="0">
+      </div>
+      <div>
+        <div class="field-label" style="margin-top:0">Fecha de caducidad</div>
+        <input class="text-input" type="date" id="caducidad">
+      </div>
+    </div>
+
+    <div class="field-label">Lote</div>
+    <input class="text-input qty-input" id="lote" placeholder="Ej. L12345" autocapitalize="characters">
+
+    <div class="field-label">Fotografía de soporte</div>
+    <div class="photo-drop" id="photoDrop">
+      <span class="icon">📷</span>
+      <div class="hint"><b>Toca para tomar o subir</b> una foto del producto con explosión</div>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">
+
+    <div class="field-label">Reportado por</div>
+    <input class="text-input" id="reportadoPor" placeholder="Nombre de quien reporta el accidente">
+
+    <div class="field-label">Notas <span class="opt">(opcional)</span></div>
+    <textarea id="notas" placeholder="Cómo ocurrió, ubicación en piso/almacén, etc."></textarea>
+
+    <button class="btn-big" id="saveBtn">Guardar reporte</button>
+  `;
+  el('photoDrop').addEventListener('click', ()=> el('photoInput').click());
+  el('photoInput').addEventListener('change', handlePhotoSelect);
+  el('saveBtn').addEventListener('click', submitReport);
+  renderReportList();
+  el('overlay').classList.add('open');
+}
+
+function renderReportList(){
+  const box = el('reportList');
+  if(!box || !currentStore) return;
+  const list = reportsOf(currentStore.idTienda);
+  if(!list.length){ box.innerHTML = ''; return; }
+  const total = list.reduce((s,r)=> s + (r.piezas||0), 0);
+  box.innerHTML = `
+    <div class="section-title">Reportes de esta tienda · ${total} pz afectadas</div>
+    ${list.map(r=>`
+      <div class="report-item" data-rid="${escHtml(r.id)}">
+        <div class="report-top">
+          <span class="report-qty">${r.piezas} pz</span>
+          <span class="report-date">${r.createdAt ? new Date(r.createdAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}) : ''}</span>
+        </div>
+        <div class="report-meta">
+          <span class="k">Lote:</span> ${escHtml(r.lote)} · <span class="k">Caduca:</span> ${escHtml(fmtDate(r.caducidad))}<br>
+          <span class="k">Reportó:</span> ${escHtml(r.reportadoPor)}
+          ${r.notas ? `<br><span class="k">Notas:</span> ${escHtml(r.notas)}` : ''}
+        </div>
+        <div class="report-actions">
+          ${r.hasPhoto ? `<button class="link-btn" data-photo="${escHtml(r.id)}">Ver foto</button>` : '<span class="report-date">Sin foto</span>'}
+          <button class="link-btn danger" data-del="${escHtml(r.id)}">Eliminar</button>
+        </div>
+        <div class="report-photo" id="photo-${escHtml(r.id)}"></div>
+      </div>`).join('')}
+    <div class="divider"></div>`;
+  box.querySelectorAll('[data-photo]').forEach(b => b.addEventListener('click', ()=> showPhoto(b.getAttribute('data-photo'))));
+  box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', ()=> deleteReport(b.getAttribute('data-del'))));
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return (y && m && d) ? `${d}/${m}/${y}` : iso;
+}
+
+async function showPhoto(id){
+  const box = document.getElementById('photo-' + id);
+  if(!box) return;
+  if(box.innerHTML){ box.innerHTML = ''; return; }
+  if(!firebaseReady){ box.innerHTML = '<div class="report-date">Sin conexión a la nube.</div>'; return; }
+  box.innerHTML = '<div class="report-date">Cargando foto…</div>';
+  try{
+    const doc = await photosCol.doc(id).get();
+    box.innerHTML = (doc.exists && doc.data().photo) ? `<img src="${doc.data().photo}" alt="Foto de soporte">` : '<div class="report-date">No se encontró la foto.</div>';
+  }catch(e){ box.innerHTML = '<div class="report-date">No se pudo cargar la foto.</div>'; }
+}
+
+function handlePhotoSelect(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const scale = Math.min(1, 900 / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale; canvas.height = img.height * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      pendingPhoto = canvas.toDataURL('image/jpeg', 0.62);
+      const drop = el('photoDrop');
+      drop.classList.remove('err');
+      drop.classList.add('has-photo');
+      drop.innerHTML = `<img src="${pendingPhoto}" alt="Vista previa"><div class="photo-actions"><button type="button" id="retakeBtn">Cambiar foto</button></div>`;
+      el('retakeBtn').addEventListener('click', ev2 => { ev2.stopPropagation(); el('photoInput').click(); });
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitReport(){
+  const piezas = parseInt(el('piezas').value, 10);
+  const caducidad = el('caducidad').value;
+  const lote = el('lote').value.trim().toUpperCase();
+  const reportadoPor = el('reportadoPor').value.trim();
+  const notas = el('notas').value.trim();
+
+  // validación
+  let ok = true;
+  const mark = (id, bad) => { el(id).classList.toggle('err', bad); if(bad) ok = false; };
+  mark('piezas', !(piezas > 0));
+  mark('caducidad', !caducidad);
+  mark('lote', !lote);
+  mark('reportadoPor', !reportadoPor);
+  el('photoDrop').classList.toggle('err', !pendingPhoto);
+  if(!pendingPhoto) ok = false;
+  if(!ok){ showToast('Completa los campos marcados en rojo'); return; }
+
+  const btn = el('saveBtn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  const report = {
+    idTienda: String(currentStore.idTienda),
+    tienda: currentStore.tienda,
+    region: currentStore.region,
+    zona: currentStore.zona,
+    articulo: ARTICULO,
+    piezas, caducidad, lote, reportadoPor,
+    notas: notas || null,
+    hasPhoto: !!pendingPhoto,
+    createdAt: new Date().toISOString()
+  };
+
+  try{
+    if(firebaseReady){
+      const ref = reportsCol.doc();
+      await photosCol.doc(ref.id).set({ photo: pendingPhoto });
+      await ref.set(report);   // onSnapshot actualiza la lista
+    }else{
+      reports.unshift({ id: 'local-' + Date.now(), ...report });
+      showToast('Guardado solo en esta sesión (sin Firebase).');
+    }
+    closeModal();
+    render();
+    showToast('Reporte guardado');
+  }catch(e){
+    console.error(e);
+    btn.disabled = false; btn.textContent = 'Guardar reporte';
+    showToast('No se pudo guardar. Intenta de nuevo.');
+  }
+}
+
+async function deleteReport(id){
+  if(!confirm('¿Eliminar este reporte?')) return;
+  try{
+    if(firebaseReady){
+      await reportsCol.doc(id).delete();
+      try{ await photosCol.doc(id).delete(); }catch(e){}
+    }else{
+      reports = reports.filter(r => r.id !== id);
+      render(); renderReportList();
+    }
+    showToast('Reporte eliminado');
+  }catch(e){ showToast('No se pudo eliminar'); }
+}
+
+function closeModal(){
+  el('overlay').classList.remove('open');
+  currentStore = null;
+}
+
+let toastTimer;
+function showToast(msg){
+  const t = el('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=> t.classList.remove('show'), 2600);
+}
+
+function bindControls(){
+  el('searchInput').addEventListener('input', render);
+  el('regionFilter').addEventListener('change', render);
+  el('statusFilter').addEventListener('change', render);
+  el('modalClose').addEventListener('click', closeModal);
+  el('overlay').addEventListener('click', e => { if(e.target.id === 'overlay') closeModal(); });
+  el('exportBtn').addEventListener('click', exportToExcel);
+}
+
+/* ============ EXPORTAR A EXCEL ============ */
+function exportToExcel(){
+  try{
+    const sorted = [...reports].sort((a,b)=> String(a.createdAt).localeCompare(String(b.createdAt)));
+    const detalle = sorted.map(r => ({
+      'Región': titleCase(r.region),
+      'Zona': titleCase(r.zona),
+      'Tienda': titleCase(r.tienda),
+      'Artículo': r.articulo || ARTICULO,
+      'Piezas afectadas': r.piezas,
+      'Lote': r.lote,
+      'Fecha de caducidad': fmtDate(r.caducidad),
+      'Reportado por': r.reportadoPor,
+      'Fecha y hora del reporte': r.createdAt ? new Date(r.createdAt).toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'}) : '',
+      'Foto adjunta': r.hasPhoto ? 'Sí' : 'No',
+      'Notas': r.notas || ''
+    }));
+
+    const porTienda = STORES.map(s => ({
+      'Región': titleCase(s.region),
+      'Zona': titleCase(s.zona),
+      'ID Artículo': s.idArticulo,
+      'Tienda': titleCase(s.tienda),
+      'Existencia Piezas': s.existPiezas,
+      'Existencia Cajas': s.existCajas,
+      'Reportes': reportsOf(s.idTienda).length,
+      'Piezas afectadas': piezasOf(s.idTienda)
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(detalle.length ? detalle : [{'Sin reportes':''}]);
+    ws1['!cols'] = [{wch:16},{wch:20},{wch:28},{wch:30},{wch:10},{wch:14},{wch:14},{wch:26},{wch:20},{wch:10},{wch:40}];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Reportes');
+
+    const ws2 = XLSX.utils.json_to_sheet(porTienda);
+    ws2['!cols'] = [{wch:16},{wch:20},{wch:10},{wch:28},{wch:10},{wch:10},{wch:10},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Por tienda');
+
+    const total = reports.reduce((s,r)=> s + (r.piezas||0), 0);
+    const ws3 = XLSX.utils.json_to_sheet([
+      {Concepto:'Artículo', Valor: ARTICULO},
+      {Concepto:'Total de tiendas', Valor: STORES.length},
+      {Concepto:'Tiendas con reporte', Valor: new Set(reports.map(r=>String(r.idTienda))).size},
+      {Concepto:'Total de reportes', Valor: reports.length},
+      {Concepto:'Total piezas afectadas', Valor: total},
+      {Concepto:'Generado', Valor: new Date().toLocaleString('es-MX',{dateStyle:'medium',timeStyle:'short'})}
+    ]);
+    ws3['!cols'] = [{wch:24},{wch:34}];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Resumen');
+
+    XLSX.writeFile(wb, `explosiones-agua-mineral-${new Date().toISOString().slice(0,10)}.xlsx`);
+    showToast('Excel generado');
+  }catch(e){ console.error(e); showToast('No se pudo generar el Excel'); }
+}
+
+init();
+</script>
+</body>
+</html>

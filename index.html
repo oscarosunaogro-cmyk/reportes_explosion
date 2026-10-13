@@ -174,7 +174,10 @@
   .photo-drop .hint{ font-size:12.5px; color:var(--text-mut); }
   .photo-drop .hint b{ color:var(--navy); }
   .photo-drop .icon{ font-size:26px; margin-bottom:6px; display:block; }
-  .photo-actions{ position:absolute; bottom:8px; right:8px; }
+  .photo-actions{ position:absolute; bottom:8px; right:8px; display:flex; gap:6px; }
+  .photo-btns{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+  .photo-btns button{ font-family:var(--sans); font-weight:600; font-size:13px; padding:10px 14px; border-radius:9px; border:1px solid var(--navy); background:var(--navy); color:#fff; cursor:pointer; }
+  .photo-btns button.alt{ background:#fff; color:var(--navy); }
   .photo-actions button{
     font-family:var(--sans); font-size:11.5px; font-weight:600; padding:6px 10px;
     border-radius:7px; border:none; background:rgba(8,20,30,.72); color:#fff; cursor:pointer;
@@ -410,11 +413,16 @@ function openModal(idTienda){
     <input class="text-input qty-input" id="lote" placeholder="Ej. L12345" autocapitalize="characters">
 
     <div class="field-label">Fotografía de soporte</div>
-    <div class="photo-drop" id="photoDrop">
+    <div class="photo-drop" id="photoDrop" style="cursor:default">
       <span class="icon">📷</span>
-      <div class="hint"><b>Toca para tomar o subir</b> una foto del producto con explosión</div>
+      <div class="hint">Adjunta una foto del producto con explosión</div>
+      <div class="photo-btns">
+        <button type="button" id="camBtn">📷 Tomar foto</button>
+        <button type="button" class="alt" id="galBtn">🖼 Elegir de galería</button>
+      </div>
     </div>
-    <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">
+    <input type="file" accept="image/*" capture="environment" id="photoCam" style="display:none">
+    <input type="file" accept="image/*" id="photoGal" style="display:none">
 
     <div class="field-label">Reportado por</div>
     <input class="text-input" id="reportadoPor" placeholder="Nombre de quien reporta el accidente">
@@ -424,8 +432,10 @@ function openModal(idTienda){
 
     <button class="btn-big" id="saveBtn">Guardar reporte</button>
   `;
-  el('photoDrop').addEventListener('click', ()=> el('photoInput').click());
-  el('photoInput').addEventListener('change', handlePhotoSelect);
+  el('camBtn').addEventListener('click', ()=> el('photoCam').click());
+  el('galBtn').addEventListener('click', ()=> el('photoGal').click());
+  el('photoCam').addEventListener('change', handlePhotoSelect);
+  el('photoGal').addEventListener('change', handlePhotoSelect);
   el('saveBtn').addEventListener('click', submitReport);
   renderReportList();
   el('overlay').classList.add('open');
@@ -481,6 +491,7 @@ async function showPhoto(id){
 
 function handlePhotoSelect(e){
   const file = e.target.files[0];
+  e.target.value = '';
   if(!file) return;
   const reader = new FileReader();
   reader.onload = ev=>{
@@ -494,8 +505,9 @@ function handlePhotoSelect(e){
       const drop = el('photoDrop');
       drop.classList.remove('err');
       drop.classList.add('has-photo');
-      drop.innerHTML = `<img src="${pendingPhoto}" alt="Vista previa"><div class="photo-actions"><button type="button" id="retakeBtn">Cambiar foto</button></div>`;
-      el('retakeBtn').addEventListener('click', ev2 => { ev2.stopPropagation(); el('photoInput').click(); });
+      drop.innerHTML = `<img src="${pendingPhoto}" alt="Vista previa"><div class="photo-actions"><button type="button" id="retakeCam">Cámara</button><button type="button" id="retakeGal">Galería</button></div>`;
+      el('retakeCam').addEventListener('click', () => el('photoCam').click());
+      el('retakeGal').addEventListener('click', () => el('photoGal').click());
     };
     img.src = ev.target.result;
   };
